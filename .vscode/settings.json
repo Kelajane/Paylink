@@ -1,12 +1,14 @@
 {
-    "cSpell.words": [
-        "massets",
-        "mbuilding",
-        "mdist",
-        "mindex",
-        "mvite",
-        "paylink",
-        "topbar",
-        "whsec"
-    ]
+  "cSpell.words": [
+    "massets",
+    "mbuilding",
+    "mdist",
+    "mindex",
+    "mvite",
+    "paylink",
+    "Supabase",
+    "topbar",
+    "whsec"
+  ],
+  "editor.formatOnSave": true
 }

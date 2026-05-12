@@ -1,5 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import Login from './pages/Login.jsx';
+import Signup from './pages/Signup.jsx';
+import Settings from './pages/Settings.jsx';
 import Home from './pages/Home.jsx';
 import Create from './pages/Create.jsx';
 import Pay from './pages/Pay.jsx';
@@ -27,37 +32,56 @@ import Security from './pages/Security.jsx';
 
 export default function App() {
   return (
-    <div className="app-shell">
-      <Navbar />
-      <main className="page-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/create" element={<Create />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/about" element={<About />} />
+    <AuthProvider>
+      <div className="app-shell">
+        <Navbar />
+        <main className="page-content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/create" element={<Create />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/about" element={<About />} />
 
-          {/* Product Pages */}
-          <Route path="/features" element={<Features />} />
+            {/* Product Pages */}
+            <Route path="/features" element={<Features />} />
 
-          {/* Company Pages */}
-          <Route path="/careers" element={<Careers />} />
-          <Route path="/contact" element={<Contact />} />
+            {/* Company Pages */}
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/contact" element={<Contact />} />
 
-          {/* Resources Pages */}
-          <Route path="/documentation" element={<Documentation />} />
-          <Route path="/help" element={<HelpCenter />} />
-          <Route path="/api-docs" element={<ApiDocs />} />
-          <Route path="/faq" element={<FAQ />} />
+            {/* Resources Pages */}
+            <Route path="/documentation" element={<Documentation />} />
+            <Route path="/help" element={<HelpCenter />} />
+            <Route path="/api-docs" element={<ApiDocs />} />
+            <Route path="/faq" element={<FAQ />} />
 
-          {/* Legal Pages */}
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/security" element={<Security />} />
+            {/* Legal Pages */}
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/security" element={<Security />} />
 
-          <Route path="/pay" element={<Pay />} />
-        </Routes>
-      </main>
-    </div>
+            <Route path="/pay" element={<Pay />} />
+          </Routes>
+        </main>
+      </div>
+    </AuthProvider>
   );
 }
