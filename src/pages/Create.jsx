@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Copy, Link as LinkIcon, QrCode } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Copy, QrCode } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function buildTransactionId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12,6 +14,7 @@ function isValidWallet(value) {
 }
 
 export default function Create() {
+  const { user, createPaymentLink } = useAuth();
   const [step, setStep] = useState(1);
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('0.50');
@@ -20,13 +23,14 @@ export default function Create() {
   const [generatedLink, setGeneratedLink] = useState('');
   const [txId, setTxId] = useState('');
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const paymentUrl = useMemo(() => (generatedLink ? `${origin}${generatedLink}` : ''), [generatedLink, origin]);
 
-  const handleGenerate = (event) => {
+  const handleGenerate = async (event) => {
     event.preventDefault();
     const validAmount = parseFloat(amount);
     if (!isValidWallet(wallet)) {
@@ -37,14 +41,36 @@ export default function Create() {
       setError('Enter a payment amount greater than 0.');
       return;
     }
+
     setError('');
     const safeAmount = validAmount.toFixed(2);
     const safeLabel = label.trim() || 'Payment request';
     const safeWallet = wallet.trim();
-    const link = `/pay?amount=${encodeURIComponent(safeAmount)}&label=${encodeURIComponent(safeLabel)}&wallet=${encodeURIComponent(safeWallet)}&note=${encodeURIComponent(note.trim())}&txId=${encodeURIComponent(buildTransactionId())}`;
+    const transactionId = buildTransactionId();
+    const link = `/pay?amount=${encodeURIComponent(safeAmount)}&label=${encodeURIComponent(safeLabel)}&wallet=${encodeURIComponent(safeWallet)}&note=${encodeURIComponent(note.trim())}&txId=${encodeURIComponent(transactionId)}`;
+
     setGeneratedLink(link);
-    setTxId(link.split('txId=')[1] || buildTransactionId());
+    setTxId(transactionId);
     setStep(2);
+
+    if (user) {
+      setSaving(true);
+      try {
+        await createPaymentLink({
+          wallet_address: safeWallet,
+          amount: Number(safeAmount),
+          label: safeLabel,
+          note: note.trim(),
+          tx_id: transactionId,
+        });
+        toast.success('PayLink saved to your dashboard.');
+      } catch (createError) {
+        console.warn('Save PayLink failed:', createError);
+        toast.error('Unable to save PayLink. It will still work locally.');
+      } finally {
+        setSaving(false);
+      }
+    }
   };
 
   const handleCopy = async () => {
@@ -53,8 +79,8 @@ export default function Create() {
       await navigator.clipboard.writeText(paymentUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch (error) {
-      console.error(error);
+    } catch (copyError) {
+      console.error(copyError);
     }
   };
 
@@ -129,9 +155,12 @@ export default function Create() {
             </label>
           </div>
           {error && <div className="form-error">{error}</div>}
-          <button className="primary-button form-action" type="submit">
-            Generate PayLink <ArrowRight size={18} />
+          <button className="primary-button form-action" type="submit" disabled={saving}>
+            {saving ? 'Saving link…' : 'Generate PayLink'} <ArrowRight size={18} />
           </button>
+          {!user && (
+            <p className="form-note">Log in to save this PayLink to your account.</p>
+          )}
         </form>
       )}
 
