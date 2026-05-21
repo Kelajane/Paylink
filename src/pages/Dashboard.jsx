@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
-import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Download, ArrowUpRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Download, ArrowUpRight, Lock } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
+import UpgradeModal from '../components/UpgradeModal.jsx';
 
 const sampleTransactions = [
   { id: '5Jxabc123', amount: 0.5, label: 'Coffee', status: 'Completed', date: '2024-01-15', customer: 'Alice Johnson' },
@@ -11,9 +13,14 @@ const sampleTransactions = [
 ];
 
 export default function Dashboard() {
-  const { profile, links, transactions, loading, profileLoading } = useAuth();
+  const { profile, links, transactions, loading, profileLoading, upgradeSubscription } = useAuth();
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [planLoading, setPlanLoading] = useState(false);
+
   const displayName = profile?.full_name || 'PayLink user';
   const tier = profile?.subscription_tier || 'Starter';
+  const isPro = tier === 'Pro' || tier === 'Business';
+  const isBusiness = tier === 'Business';
   const hasData = transactions.length > 0;
 
   const displayTransactions = useMemo(() => (hasData ? transactions : sampleTransactions), [hasData, transactions]);
@@ -30,6 +37,31 @@ export default function Dashboard() {
   const avgTransaction = totalTransactions > 0 ? (Number(totalReceived) / totalTransactions).toFixed(2) : '0.00';
 
   const recentLinks = links.slice(0, 4);
+
+  const openUpgradeModal = () => setIsUpgradeOpen(true);
+  const closeUpgradeModal = () => setIsUpgradeOpen(false);
+
+  const handleUpgrade = async (tierKey) => {
+    setPlanLoading(true);
+    try {
+      await upgradeSubscription(tierKey);
+      toast.success(`Upgraded to ${tierKey} successfully.`);
+      closeUpgradeModal();
+    } catch (err) {
+      console.error('Upgrade failed', err);
+      toast.error('Unable to upgrade subscription.');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (!isPro) {
+      openUpgradeModal();
+      return;
+    }
+    toast.success('Export tools are available for Pro members.');
+  };
 
   return (
     <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px' }}>
@@ -112,11 +144,68 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="premium-section">
+          <div className="premium-header">
+            <div>
+              <p className="eyebrow">Premium features</p>
+              <h2>Unlock more growth tools for PayLink success</h2>
+              <p className="subtext">Upgrade your plan to access advanced reporting, exports, and branded payment pages.</p>
+            </div>
+            <button type="button" className="secondary-button upgrade-trigger" onClick={openUpgradeModal}>
+              {isPro ? 'Change plan' : 'Upgrade plan'}
+            </button>
+          </div>
+
+          <div className="premium-grid">
+            <div className={`premium-card ${isPro ? 'premium-unlocked' : 'premium-locked'}`}>
+              <div className="premium-card-label">Advanced analytics</div>
+              <h3>Revenue pulse & trend insights</h3>
+              <p>See deeper performance metrics, funnel breakdowns, and growth signals for your next campaign.</p>
+              <div className="premium-card-footer">
+                {isPro ? (
+                  <span className="feature-status">Included in Pro</span>
+                ) : (
+                  <button type="button" className="ghost-button" onClick={openUpgradeModal}>
+                    Unlock with Pro
+                  </button>
+                )}
+              </div>
+              {!isPro && (
+                <div className="feature-lock-overlay">
+                  <Lock size={20} />
+                  <span>Premium</span>
+                </div>
+              )}
+            </div>
+
+            <div className={`premium-card ${isBusiness ? 'premium-unlocked' : 'premium-locked'}`}>
+              <div className="premium-card-label">Branded pages</div>
+              <h3>Custom PayLink branding</h3>
+              <p>Upgrade to Business for full brand control, custom page styling, and priority onboarding support.</p>
+              <div className="premium-card-footer">
+                {isBusiness ? (
+                  <span className="feature-status">Included in Business</span>
+                ) : (
+                  <button type="button" className="ghost-button" onClick={openUpgradeModal}>
+                    Unlock Business
+                  </button>
+                )}
+              </div>
+              {!isBusiness && (
+                <div className="feature-lock-overlay">
+                  <Lock size={20} />
+                  <span>Business only</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="recent-panel">
           <div className="recent-header">
             <h2>Recent Transactions</h2>
             <div className="panel-actions">
-              <button className="ghost-button small">
+              <button type="button" className="ghost-button small" onClick={handleExport}>
                 <Download size={16} />
                 Export
               </button>
@@ -195,6 +284,14 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <UpgradeModal
+        open={isUpgradeOpen}
+        currentTier={tier}
+        onClose={closeUpgradeModal}
+        onUpgrade={handleUpgrade}
+        loading={planLoading}
+      />
     </div>
   );
 }

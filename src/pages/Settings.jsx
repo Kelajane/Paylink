@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { ShieldCheck, Mail, User, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
+import UpgradeModal from '../components/UpgradeModal.jsx';
 
 export default function Settings() {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile, upgradeSubscription } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || user?.user_metadata?.full_name || 'Member');
   const [company, setCompany] = useState(profile?.company_name || '');
   const [website, setWebsite] = useState(profile?.website_url || '');
   const [saving, setSaving] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [planLoading, setPlanLoading] = useState(false);
 
   useEffect(() => {
     setFullName(profile?.full_name || user?.user_metadata?.full_name || 'Member');
@@ -18,6 +21,24 @@ export default function Settings() {
 
   const email = user?.email || '—';
   const createdAt = user?.created_at ? new Date(user.created_at).toLocaleDateString() : null;
+  const tier = profile?.subscription_tier || 'Starter';
+
+  const openUpgradeModal = () => setIsUpgradeOpen(true);
+  const closeUpgradeModal = () => setIsUpgradeOpen(false);
+
+  const handlePlanUpgrade = async (selectedTier) => {
+    setPlanLoading(true);
+    try {
+      await upgradeSubscription(selectedTier);
+      toast.success(`Subscription updated to ${selectedTier}.`);
+      closeUpgradeModal();
+    } catch (error) {
+      console.error(error);
+      toast.error('Unable to update plan at this time.');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -75,6 +96,15 @@ export default function Settings() {
                 <div className="detail-row">
                   <span>Website</span>
                   <strong>{website || 'Not set'}</strong>
+                </div>
+                <div className="detail-row subscription-row">
+                  <span>Subscription tier</span>
+                  <div className="subscription-summary">
+                    <strong>{tier}</strong>
+                    <button type="button" className="ghost-button small" onClick={openUpgradeModal}>
+                      {tier === 'Starter' ? 'Upgrade' : 'Change plan'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
@@ -166,6 +196,13 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      <UpgradeModal
+        open={isUpgradeOpen}
+        currentTier={tier}
+        onClose={closeUpgradeModal}
+        onUpgrade={handlePlanUpgrade}
+        loading={planLoading}
+      />
     </div>
   );
 }

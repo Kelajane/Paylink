@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { fetchProfile, upsertProfile, updateProfileRow, fetchPaymentLinks, createPaymentLinkEntry, fetchTransactions } from '../lib/db.js';
+import { normalizeTier } from '../lib/subscriptions.js';
 
 const AuthContext = createContext();
 
@@ -285,6 +286,33 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const upgradeSubscription = async (targetTier) => {
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+
+    setProfileLoading(true);
+    try {
+      const normalizedTier = normalizeTier(targetTier);
+      const { data: profileData, error: profileError } = await updateProfileRow(user.id, {
+        subscription_tier: normalizedTier,
+      });
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      setProfile(profileData);
+      setError(null);
+      return profileData;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const createPaymentLink = async ({ wallet_address, amount, label, note, tx_id }) => {
     if (!user) {
       throw new Error('Not authenticated');
@@ -321,6 +349,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         updateProfile,
+        upgradeSubscription,
         createPaymentLink,
       }}
     >
