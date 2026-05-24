@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles, Shield, Globe, Users } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const plans = [
   {
@@ -33,6 +35,30 @@ const plans = [
 ];
 
 export default function Pricing() {
+  const navigate = useNavigate();
+  const { user, profile, upgradeSubscription } = useAuth();
+  const currentTier = profile?.subscription_tier || 'Starter';
+
+  const handlePlanAction = async (planKey) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (planKey === currentTier) {
+      toast('You are already on this plan.');
+      return;
+    }
+
+    try {
+      await upgradeSubscription(planKey);
+      toast.success(`Subscription updated to ${planKey}.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Unable to update subscription at this time.');
+    }
+  };
+
   return (
     <div className="pricing-page container fade-in">
       <section className="pricing-hero section">
@@ -67,9 +93,10 @@ export default function Pricing() {
             ) : (
               <button
                 type="button"
-                className={`plan-button ${plan.popular ? 'primary-button filled' : 'ghost-button'} hover-only`}
+                className={`plan-button ${plan.popular ? 'primary-button filled' : 'ghost-button'}`}
+                onClick={() => handlePlanAction(plan.name)}
               >
-                {plan.buttonText}
+                {plan.name === currentTier ? 'Current plan' : plan.buttonText}
               </button>
             )}
           </article>

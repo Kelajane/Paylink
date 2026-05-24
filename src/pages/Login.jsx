@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,8 +24,13 @@ export default function Login() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!email.trim() || !password) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
       toast.error('Please enter your email and password.');
+      return;
+    }
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters.');
       return;
     }
 
@@ -78,8 +89,8 @@ export default function Login() {
             </div>
           </label>
 
-          <button type="submit" className="auth-button" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Continue to Dashboard'}
+          <button type="submit" className="auth-button" disabled={submitting || loading}>
+            {submitting || loading ? 'Signing in…' : 'Continue to Dashboard'}
           </button>
         </form>
 

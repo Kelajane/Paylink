@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import NotificationsDropdown from './NotificationsDropdown.jsx';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prev) => !prev);
@@ -18,6 +20,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     await logout();
     closeMenu();
+    navigate('/login', { replace: true });
   };
 
   const initials = user
@@ -78,8 +81,11 @@ export default function Navbar() {
             >
               Pricing
             </NavLink>
-            {user ? (
+            {loading ? (
+              <div className="nav-loading">Loading…</div>
+            ) : user ? (
               <>
+                <NotificationsDropdown />
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}

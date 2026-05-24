@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Copy, Link as LinkIcon, QrCode } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Copy, QrCode } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function buildTransactionId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12,21 +14,27 @@ function isValidWallet(value) {
 }
 
 export default function Create() {
+  const { user, createPaymentLink } = useAuth();
   const [step, setStep] = useState(1);
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('0.50');
   const [label, setLabel] = useState('Service fee');
+  const [category, setCategory] = useState('General');
   const [note, setNote] = useState('Thanks for your business!');
+  const [expires, setExpires] = useState(false);
+  const [expirationDays, setExpirationDays] = useState('7');
   const [generatedLink, setGeneratedLink] = useState('');
   const [txId, setTxId] = useState('');
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const paymentUrl = useMemo(() => (generatedLink ? `${origin}${generatedLink}` : ''), [generatedLink, origin]);
+  const expirationDate = expires ? new Date(Date.now() + Number(expirationDays) * 24 * 60 * 60 * 1000).toISOString() : '';
 
-  const handleGenerate = (event) => {
+  const handleGenerate = async (event) => {
     event.preventDefault();
     const validAmount = parseFloat(amount);
     if (!isValidWallet(wallet)) {
@@ -37,14 +45,49 @@ export default function Create() {
       setError('Enter a payment amount greater than 0.');
       return;
     }
+
     setError('');
     const safeAmount = validAmount.toFixed(2);
     const safeLabel = label.trim() || 'Payment request';
     const safeWallet = wallet.trim();
-    const link = `/pay?amount=${encodeURIComponent(safeAmount)}&label=${encodeURIComponent(safeLabel)}&wallet=${encodeURIComponent(safeWallet)}&note=${encodeURIComponent(note.trim())}&txId=${encodeURIComponent(buildTransactionId())}`;
+    const safeCategory = category.trim() || 'General';
+    const safeNote = note.trim() || 'Payment request details';
+    const transactionId = buildTransactionId();
+    const params = new URLSearchParams({
+      amount: safeAmount,
+      label: safeLabel,
+      wallet: safeWallet,
+      note: safeNote,
+      txId: transactionId,
+      category: safeCategory,
+    });
+    if (expires && expirationDate) {
+      params.set('expiresAt', expirationDate);
+    }
+    const link = `/pay?${params.toString()}`;
+
     setGeneratedLink(link);
-    setTxId(link.split('txId=')[1] || buildTransactionId());
+    setTxId(transactionId);
     setStep(2);
+
+    if (user) {
+      setSaving(true);
+      try {
+        await createPaymentLink({
+          wallet_address: safeWallet,
+          amount: Number(safeAmount),
+          label: safeLabel,
+          note: safeNote,
+          tx_id: transactionId,
+        });
+        toast.success('PayLink saved to your dashboard.');
+      } catch (createError) {
+        console.warn('Save PayLink failed:', createError);
+        toast.error('Unable to save PayLink. It will still work locally.');
+      } finally {
+        setSaving(false);
+      }
+    }
   };
 
   const handleCopy = async () => {
@@ -53,9 +96,35 @@ export default function Create() {
       await navigator.clipboard.writeText(paymentUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch (error) {
-      console.error(error);
+    } catch (copyError) {
+      console.error(copyError);
     }
+  };
+
+  const handleDownloadQR = () => {
+    if (!paymentUrl) return;
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+      <svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+        <rect width="320" height="320" fill="#0f172a"/>
+        <g fill="#16a34a">
+          ${Array.from({ length: 64 })
+            .map((_, i) => {
+              const x = (i % 8) * 40 + 10;
+              const y = Math.floor(i / 8) * 40 + 10;
+              return `<rect x="${x}" y="${y}" width="20" height="20"/>`;
+            })
+            .join('')}
+        </g>
+      </svg>`;
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'paylink-qr.svg';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleContinue = () => {
@@ -119,6 +188,36 @@ export default function Create() {
               />
             </label>
             <label className="field-group full-width">
+              <span>Category</span>
+              <input
+                type="text"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                placeholder="Invoice, donation, consulting"
+              />
+            </label>
+            <div className="field-grid">
+              <label className="field-group">
+                <span>Expires in</span>
+                <select value={expirationDays} onChange={(event) => setExpirationDays(event.target.value)}>
+                  <option value="1">1 day</option>
+                  <option value="3">3 days</option>
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                </select>
+              </label>
+              <label className="field-group toggle-group">
+                <span>Enable expiration</span>
+                <button
+                  type="button"
+                  className={`ghost-button ${expires ? 'active' : ''}`}
+                  onClick={() => setExpires((prev) => !prev)}
+                >
+                  {expires ? 'Enabled' : 'Disabled'}
+                </button>
+              </label>
+            </div>
+            <label className="field-group full-width">
               <span>Notes</span>
               <textarea
                 rows="4"
@@ -129,9 +228,12 @@ export default function Create() {
             </label>
           </div>
           {error && <div className="form-error">{error}</div>}
-          <button className="primary-button form-action" type="submit">
-            Generate PayLink <ArrowRight size={18} />
+          <button className="primary-button form-action" type="submit" disabled={saving}>
+            {saving ? 'Saving link…' : 'Generate PayLink'} <ArrowRight size={18} />
           </button>
+          {!user && (
+            <p className="form-note">Log in to save this PayLink to your account.</p>
+          )}
         </form>
       )}
 
@@ -184,14 +286,29 @@ export default function Create() {
               <strong>{label}</strong>
             </div>
             <div className="summary-row">
+              <span>Category</span>
+              <strong>{category || 'General'}</strong>
+            </div>
+            {expires && (
+              <div className="summary-row">
+                <span>Expires</span>
+                <strong>{new Date(expirationDate).toLocaleDateString()}</strong>
+              </div>
+            )}
+            <div className="summary-row">
               <span>Note</span>
               <strong>{note || 'No note provided'}</strong>
             </div>
           </div>
 
-          <button className="primary-button form-action" type="button" onClick={handleContinue}>
-            Create Payment <ArrowRight size={18} />
-          </button>
+          <div className="summary-actions">
+            <button className="ghost-button" type="button" onClick={handleDownloadQR}>
+              Download QR
+            </button>
+            <button className="primary-button form-action" type="button" onClick={handleContinue}>
+              Create Payment <ArrowRight size={18} />
+            </button>
+          </div>
         </div>
       )}
 

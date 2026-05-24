@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Signup() {
-  const { signup } = useAuth();
+  const { signup, user, loading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -17,8 +23,13 @@ export default function Signup() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!fullName.trim() || !email.trim() || !password) {
+    const normalizedEmail = email.trim();
+    if (!fullName.trim() || !normalizedEmail || !password) {
       toast.error('Please fill in your name, email, and password.');
+      return;
+    }
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters.');
       return;
     }
 
@@ -98,8 +109,8 @@ export default function Signup() {
             </div>
           </label>
 
-          <button type="submit" className="auth-button" disabled={submitting}>
-            {submitting ? 'Creating account…' : 'Create account'}
+          <button type="submit" className="auth-button" disabled={submitting || loading}>
+            {submitting || loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
 
