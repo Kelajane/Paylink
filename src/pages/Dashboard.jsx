@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Download, ArrowUpRight, Lock } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, Users, Calendar, Download, ArrowUpRight, Lock, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
 import UpgradeModal from '../components/UpgradeModal.jsx';
@@ -14,6 +14,8 @@ const sampleTransactions = [
 
 export default function Dashboard() {
   const { profile, links, transactions, loading, profileLoading, upgradeSubscription } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
 
@@ -24,6 +26,17 @@ export default function Dashboard() {
   const hasData = transactions.length > 0;
 
   const displayTransactions = useMemo(() => (hasData ? transactions : sampleTransactions), [hasData, transactions]);
+  const filteredTransactions = useMemo(() => {
+    const searchValue = searchQuery.trim().toLowerCase();
+    return displayTransactions.filter((tx) => {
+      const matchesStatus = statusFilter === 'All' || tx.status === statusFilter;
+      const matchesSearch = [tx.id, tx.label, tx.customer]
+        .map((value) => String(value || '').toLowerCase())
+        .some((value) => value.includes(searchValue));
+      return matchesStatus && matchesSearch;
+    });
+  }, [displayTransactions, searchQuery, statusFilter]);
+
   const totalReceived = useMemo(() => {
     const source = hasData ? transactions : sampleTransactions;
     return source
@@ -62,6 +75,18 @@ export default function Dashboard() {
     }
     toast.success('Export tools are available for Pro members.');
   };
+
+  if (loading || profileLoading) {
+    return (
+      <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px' }}>
+        <div className="auth-loading-screen">
+          <div className="auth-loading-card">
+            <p>Loading your dashboard…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container" style={{ paddingTop: '40px', paddingBottom: '60px' }}>
@@ -205,15 +230,24 @@ export default function Dashboard() {
           <div className="recent-header">
             <h2>Recent Transactions</h2>
             <div className="panel-actions">
-              <button type="button" className="ghost-button small" onClick={handleExport}>
-                <Download size={16} />
-                Export
-              </button>
-              <select className="filter-select">
+              <label className="search-input">
+                <Search size={18} />
+                <input
+                  type="search"
+                  placeholder="Search transactions"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </label>
+              <select className="filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                 <option>All</option>
                 <option>Completed</option>
                 <option>Pending</option>
               </select>
+              <button type="button" className="ghost-button small" onClick={handleExport}>
+                <Download size={16} />
+                Export
+              </button>
             </div>
           </div>
 
@@ -225,9 +259,9 @@ export default function Dashboard() {
               <span>Status</span>
               <span>Date</span>
             </div>
-            {(displayTransactions.length > 0) ? (
+            {filteredTransactions.length > 0 ? (
               <ul className="transaction-list">
-                {displayTransactions.map((tx) => (
+                {filteredTransactions.map((tx) => (
                   <li key={tx.id} className="transaction-item">
                     <span className="tx-id">{tx.id}</span>
                     <span className="tx-customer">{tx.customer || tx.label}</span>
@@ -242,7 +276,7 @@ export default function Dashboard() {
               </ul>
             ) : (
               <div className="empty-state">
-                <p>No transactions yet. Create your first PayLink to start receiving payments.</p>
+                <p>No transactions match this search or filter. Try another term.</p>
               </div>
             )}
           </div>
@@ -252,6 +286,36 @@ export default function Dashboard() {
               <p>You have {pendingTransactions} pending transaction{pendingTransactions > 1 ? 's' : ''} awaiting payment.</p>
             </div>
           )}
+        </div>
+
+        <div className="activity-feed-section">
+          <div className="activity-feed-panel">
+            <div className="activity-feed-content">
+              <h2>Live activity feed</h2>
+              <p>Track the latest payment events, account actions, and revenue updates in one polished timeline.</p>
+              <div className="activity-summary-grid">
+                <div className="activity-summary-card">
+                  <h3>{displayTransactions.length}</h3>
+                  <p>Recent events</p>
+                </div>
+                <div className="activity-summary-card">
+                  <h3>{pendingTransactions}</h3>
+                  <p>Pending reviews</p>
+                </div>
+              </div>
+            </div>
+            <div className="activity-feed-list">
+              {displayTransactions.slice(0, 5).map((tx) => (
+                <div key={tx.id} className="activity-item">
+                  <span className="activity-dot" />
+                  <div>
+                    <p>{tx.customer || tx.label} completed a {tx.status.toLowerCase()} payment.</p>
+                    <small>{new Date(tx.date).toLocaleString()}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="link-panel">

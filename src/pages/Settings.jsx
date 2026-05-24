@@ -12,11 +12,15 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [billingEmail, setBillingEmail] = useState('');
+  const [apiKey, setApiKey] = useState('sk_live_************');
 
   useEffect(() => {
     setFullName(profile?.full_name || user?.user_metadata?.full_name || 'Member');
     setCompany(profile?.company_name || '');
     setWebsite(profile?.website_url || '');
+    setBillingEmail(user?.email || '');
   }, [profile, user]);
 
   const email = user?.email || '—';
@@ -163,6 +167,48 @@ export default function Settings() {
                 </button>
               </form>
             </section>
+
+            <section className="preference-panel">
+              <div className="panel-heading">
+                <div className="panel-title">
+                  <Mail size={24} />
+                  <div>
+                    <p className="label">Notifications</p>
+                    <h2>Email preferences</h2>
+                  </div>
+                </div>
+                <p className="panel-copy">Keep informed about payment activity, subscriptions, and security updates.</p>
+              </div>
+
+              <div className="notification-settings">
+                <label className="toggle-row">
+                  <span>Payment alerts</span>
+                  <input
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={() => setNotificationsEnabled((prev) => !prev)}
+                  />
+                </label>
+                <div className="form-row">
+                  <label>
+                    <span>Billing email</span>
+                    <input
+                      type="email"
+                      value={billingEmail}
+                      onChange={(event) => setBillingEmail(event.target.value)}
+                      placeholder="billing@company.com"
+                    />
+                  </label>
+                </div>
+                <button
+                  className="secondary-button form-action"
+                  type="button"
+                  onClick={() => toast.success('Notification settings saved.')}
+                >
+                  Save notification settings
+                </button>
+              </div>
+            </section>
           </div>
 
           <div className="security-panel">
@@ -191,6 +237,38 @@ export default function Settings() {
                   <p>Member</p>
                   <strong>{fullName}</strong>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="security-panel">
+            <div className="panel-heading">
+              <div className="panel-title">
+                <Sparkles size={24} />
+                <div>
+                  <p className="label">Billing</p>
+                  <h2>Plan overview</h2>
+                </div>
+              </div>
+              <p className="panel-copy">Review your current package, billing contact, and API access details.</p>
+            </div>
+
+            <div className="billing-list">
+              <div className="security-item">
+                <span>Plan</span>
+                <strong>{tier}</strong>
+              </div>
+              <div className="security-item">
+                <span>Next payment</span>
+                <strong>In 30 days</strong>
+              </div>
+              <div className="security-item">
+                <span>Billing contact</span>
+                <strong>{billingEmail || 'Not set'}</strong>
+              </div>
+              <div className="security-item">
+                <span>API key</span>
+                <strong className="break-word">{apiKey}</strong>
               </div>
             </div>
           </div>

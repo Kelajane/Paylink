@@ -15,11 +15,14 @@ export default function Pay() {
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const amount = params.get('amount') || '0.00';
   const label = params.get('label') || 'Payment receipt';
+  const category = params.get('category') || 'General';
   const wallet = params.get('wallet') || 'Not provided';
   const note = params.get('note') || 'No note included';
   const txId = params.get('txId') || 'PAY-00000000';
+  const expiresAt = params.get('expiresAt') || null;
   const createdAt = params.get('createdAt') || new Date().toISOString();
   const receiptDate = formatDate(createdAt);
+  const expirationDate = expiresAt ? formatDate(expiresAt) : null;
 
   const handleDownloadReceipt = () => {
     const receiptText = `PayLink Receipt\n\nLabel: ${label}\nAmount: ${amount} SOL\nWallet: ${wallet}\nTransaction ID: ${txId}\nDate: ${receiptDate}\nStatus: Completed\nNote: ${note}`;
@@ -65,6 +68,10 @@ export default function Pay() {
               <strong>{label}</strong>
             </div>
             <div className="receipt-detail">
+              <span>Category</span>
+              <strong>{category}</strong>
+            </div>
+            <div className="receipt-detail">
               <span>Wallet address</span>
               <strong className="break-word">{wallet}</strong>
             </div>
@@ -76,6 +83,12 @@ export default function Pay() {
               <span>Date</span>
               <strong>{receiptDate}</strong>
             </div>
+            {expirationDate && (
+              <div className="receipt-detail">
+                <span>Expires</span>
+                <strong>{expirationDate}</strong>
+              </div>
+            )}
             <div className="receipt-detail">
               <span>Note</span>
               <strong>{note}</strong>

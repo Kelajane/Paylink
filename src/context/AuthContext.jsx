@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase.js';
 import { fetchProfile, upsertProfile, updateProfileRow, fetchPaymentLinks, createPaymentLinkEntry, fetchTransactions } from '../lib/db.js';
 import { normalizeTier } from '../lib/subscriptions.js';
@@ -123,9 +124,17 @@ export function AuthProvider({ children }) {
     let subscription;
     if (supabase) {
       try {
-        const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (!mounted) return;
           const authUser = session?.user ?? null;
+
+          if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+            toast('You have been signed out.', { icon: '🔓' });
+          }
+          if (event === 'TOKEN_REFRESH_FAILED') {
+            toast.error('Your session expired. Please sign in again.');
+          }
+
           setUser(authUser);
           if (authUser) {
             await loadProfileData(authUser.id, authUser);

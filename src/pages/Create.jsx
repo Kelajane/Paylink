@@ -19,7 +19,10 @@ export default function Create() {
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('0.50');
   const [label, setLabel] = useState('Service fee');
+  const [category, setCategory] = useState('General');
   const [note, setNote] = useState('Thanks for your business!');
+  const [expires, setExpires] = useState(false);
+  const [expirationDays, setExpirationDays] = useState('7');
   const [generatedLink, setGeneratedLink] = useState('');
   const [txId, setTxId] = useState('');
   const [copied, setCopied] = useState(false);
@@ -29,6 +32,7 @@ export default function Create() {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const paymentUrl = useMemo(() => (generatedLink ? `${origin}${generatedLink}` : ''), [generatedLink, origin]);
+  const expirationDate = expires ? new Date(Date.now() + Number(expirationDays) * 24 * 60 * 60 * 1000).toISOString() : '';
 
   const handleGenerate = async (event) => {
     event.preventDefault();
@@ -46,8 +50,21 @@ export default function Create() {
     const safeAmount = validAmount.toFixed(2);
     const safeLabel = label.trim() || 'Payment request';
     const safeWallet = wallet.trim();
+    const safeCategory = category.trim() || 'General';
+    const safeNote = note.trim() || 'Payment request details';
     const transactionId = buildTransactionId();
-    const link = `/pay?amount=${encodeURIComponent(safeAmount)}&label=${encodeURIComponent(safeLabel)}&wallet=${encodeURIComponent(safeWallet)}&note=${encodeURIComponent(note.trim())}&txId=${encodeURIComponent(transactionId)}`;
+    const params = new URLSearchParams({
+      amount: safeAmount,
+      label: safeLabel,
+      wallet: safeWallet,
+      note: safeNote,
+      txId: transactionId,
+      category: safeCategory,
+    });
+    if (expires && expirationDate) {
+      params.set('expiresAt', expirationDate);
+    }
+    const link = `/pay?${params.toString()}`;
 
     setGeneratedLink(link);
     setTxId(transactionId);
@@ -60,7 +77,7 @@ export default function Create() {
           wallet_address: safeWallet,
           amount: Number(safeAmount),
           label: safeLabel,
-          note: note.trim(),
+          note: safeNote,
           tx_id: transactionId,
         });
         toast.success('PayLink saved to your dashboard.');
@@ -82,6 +99,32 @@ export default function Create() {
     } catch (copyError) {
       console.error(copyError);
     }
+  };
+
+  const handleDownloadQR = () => {
+    if (!paymentUrl) return;
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+      <svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+        <rect width="320" height="320" fill="#0f172a"/>
+        <g fill="#16a34a">
+          ${Array.from({ length: 64 })
+            .map((_, i) => {
+              const x = (i % 8) * 40 + 10;
+              const y = Math.floor(i / 8) * 40 + 10;
+              return `<rect x="${x}" y="${y}" width="20" height="20"/>`;
+            })
+            .join('')}
+        </g>
+      </svg>`;
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'paylink-qr.svg';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleContinue = () => {
@@ -144,6 +187,36 @@ export default function Create() {
                 placeholder="Service fee, donation, consulting"
               />
             </label>
+            <label className="field-group full-width">
+              <span>Category</span>
+              <input
+                type="text"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                placeholder="Invoice, donation, consulting"
+              />
+            </label>
+            <div className="field-grid">
+              <label className="field-group">
+                <span>Expires in</span>
+                <select value={expirationDays} onChange={(event) => setExpirationDays(event.target.value)}>
+                  <option value="1">1 day</option>
+                  <option value="3">3 days</option>
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                </select>
+              </label>
+              <label className="field-group toggle-group">
+                <span>Enable expiration</span>
+                <button
+                  type="button"
+                  className={`ghost-button ${expires ? 'active' : ''}`}
+                  onClick={() => setExpires((prev) => !prev)}
+                >
+                  {expires ? 'Enabled' : 'Disabled'}
+                </button>
+              </label>
+            </div>
             <label className="field-group full-width">
               <span>Notes</span>
               <textarea
@@ -213,14 +286,29 @@ export default function Create() {
               <strong>{label}</strong>
             </div>
             <div className="summary-row">
+              <span>Category</span>
+              <strong>{category || 'General'}</strong>
+            </div>
+            {expires && (
+              <div className="summary-row">
+                <span>Expires</span>
+                <strong>{new Date(expirationDate).toLocaleDateString()}</strong>
+              </div>
+            )}
+            <div className="summary-row">
               <span>Note</span>
               <strong>{note || 'No note provided'}</strong>
             </div>
           </div>
 
-          <button className="primary-button form-action" type="button" onClick={handleContinue}>
-            Create Payment <ArrowRight size={18} />
-          </button>
+          <div className="summary-actions">
+            <button className="ghost-button" type="button" onClick={handleDownloadQR}>
+              Download QR
+            </button>
+            <button className="primary-button form-action" type="button" onClick={handleContinue}>
+              Create Payment <ArrowRight size={18} />
+            </button>
+          </div>
         </div>
       )}
 
